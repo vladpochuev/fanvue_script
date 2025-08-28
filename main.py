@@ -1,12 +1,11 @@
 import math
 import os
+import ssl
 import sys
 import threading
 import time
 import tkinter as tk
 from tkinter import filedialog, ttk
-
-import ssl
 
 import undetected_chromedriver as uc
 from openpyxl import load_workbook
@@ -16,6 +15,9 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
+file_path = None
+
+
 def resource_path(relative_path):
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
@@ -23,13 +25,14 @@ def resource_path(relative_path):
 
 
 def choose_file():
+    global file_path
+
     file_path = filedialog.askopenfilename(
         title="Select excel file",
         filetypes=(("Excel files", "*.xlsx *.xls"),)
     )
     if file_path:
         update_status(f"Selected Excel File: {file_path}")
-        threading.Thread(target=start_script, args=(file_path,), daemon=True).start()
 
 
 def update_progress_bar(idx, quantity):
@@ -40,11 +43,15 @@ def update_progress_bar(idx, quantity):
     ))
 
 
-def update_status(text):
-    root.after(0, lambda: lbl_status.config(text=text))
+def update_status(text, color="#000"):
+    root.after(0, lambda: lbl_status.config(text=text, foreground=color))
 
 
-def start_script(file_path):
+def start_script(file_path, url):
+    if not file_path or not url:
+        update_status(f"Choose an excel file and url", "#ff0000")
+        return
+
     workbook = load_workbook(file_path)
     sheet = workbook.active
 
@@ -86,7 +93,7 @@ def start_script(file_path):
             WebDriverWait(driver, 10).until(EC.url_to_be("https://www.fanvue.com/home"))
 
             update_status("Opening creator page...")
-            driver.get("https://www.fanvue.com/daisy_grace_uk")
+            driver.get(url)
             time.sleep(5)
 
             try:
@@ -143,7 +150,13 @@ def start_script(file_path):
 
 
 root = tk.Tk()
+
+lbl_url = tk.Label(root, text="Fanvue URL")
+txt_url = tk.Entry(root, width=50)
 btn_choose = tk.Button(root, text="Choose excel file", command=choose_file)
+btn_start = tk.Button(root, text="Start",
+                      command=lambda: threading.Thread(target=start_script, args=(file_path, txt_url.get()),
+                                                       daemon=True).start())
 lbl_status = tk.Label(root, text="File is not selected")
 progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
 lbl_progress = tk.Label(root, text="")
@@ -153,7 +166,10 @@ def run():
     root.title("Fanvue autolike script")
     root.geometry("500x220")
 
+    lbl_url.pack(pady=10)
+    txt_url.pack(pady=10)
     btn_choose.pack(pady=10)
+    btn_start.pack(pady=10)
     lbl_status.pack(pady=10)
     progress_bar.pack(pady=10)
     lbl_progress.pack(pady=5)
